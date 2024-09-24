@@ -1,7 +1,12 @@
 # ADVANCED ENCRYPTION STANDARD (AES)
-' SPECIAL THANKS TO: https://legacy.cryptool.org/en/cto/aes-step-by-step'
+# NIST FIPS 197 - from https://doi.org/10.6028/NIST.FIPS.197-upd1
+""" SPECIAL THANKS TO: https://legacy.cryptool.org/en/cto/aes-step-by-step"""
+from typing import List, Any
+
 import numpy
 import os
+
+from numpy import ndarray, dtype
 
 # SBox() as 2D array
 s_box = [
@@ -43,12 +48,7 @@ inv_s_box = [
     [0x17, 0x2B, 0x04, 0x7E, 0xBA, 0x77, 0xD6, 0x26, 0xE1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0C, 0x7D]
 ]
 
-# in
-input_state = 0
-# number of rows
-nr = 0
-# key schedule
-w = [0, 1, 2, 3]
+r_con: list[int] = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36, 0x6C, 0xD8, 0xAB, 0x4D, 0x9A]
 
 
 def print_hex(data):
@@ -61,12 +61,6 @@ def print_column_hex(data, col):
     column = data[:, col]  # Extract the column
     hex_column = [f'{x:02x}' for x in column]  # Convert each byte to 2-digit hex
     print(" ".join(hex_column))  # Print as a space-separated hex string
-
-
-# Using map to split state value into separate single digits
-# returns a list
-def split_num(var):
-    return list(map(int, str(var)))
 
 
 # applies a substitution table (S-box) to each byte.
@@ -125,43 +119,17 @@ def inverse_shift_rows(state):
 
 # combines a round key with the state.
 def add_roundkey(state, w):
-    new_state = numpy.empty((4, 4), dtype=int)
-    # print("add roundkey - correct")
-    # print_hex(state)
-    # for i in range(4):
     num_rows, num_cols = state.shape
+    new_state = numpy.empty((num_rows, num_cols), dtype=int)
 
     for i in range(num_cols):
         new_state[:, i] = state[:, i] ^ w[:, i]
-        # print("input0:", single_convert_dec_to_hex(state[0,0]))
-        # print("key0:", single_convert_dec_to_hex(w[0, 0]))
-        # print("out0:", single_convert_dec_to_hex(new_state[0,0]))
-        # print()
     return new_state
 
 
 # shift word to left
 def rot_word(word):
     return numpy.roll(word, -1)  # roll 1 to left
-
-
-"""
-sub_word does a substitution with the SBox for every element in a word.
-example: 2c6b7b52 -> 717f2100
-
-the input "word" will be a column of 4 elements
-"""
-
-
-def single_convert_dec_to_hex(dec):
-    # Convert decimal to hexadecimal (return a list of 2 elements)
-    initial_value_hex = hex(dec)[2:]  # Remove '0x' prefix
-
-    # Ensure the hex value is two digits (for x and y positions)
-    if len(initial_value_hex) == 1:
-        initial_value_hex = '0' + initial_value_hex
-
-    return initial_value_hex
 
 
 def convert_dec_to_hex(dec):
@@ -286,48 +254,40 @@ def inverse_mix_columns(state):
     44 words (176 bytes).
 
     Args:
-        key (bytes): Key to expand
+        key (bytes): 
+            Key to expand
+        
+        n_k:
+            key size: i.e.: NK is the number of four-byte words that are in the original cipher key (4, 6, or 8)
 
     Returns:
-        list: List of words for expanded key
+        w: Array of words of the expanded key
 
     n_r:
         number of rounds (10 for AES-128)
 
-    n_k:
-        key size: i.e.: NK is the number of four-byte words that are in the original cipher key (4, 6, or 8)
-
-    r_con: Round Constants = [None, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36]
-    (can be computed from the algorithm: 2i-1 << 24 in Galois Field)
+    r_con: Round Constants = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36]
+        (can be computed from the algorithm: 2i-1 << 24 in Galois Field)
     """
-
-r_con = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36]
 
 
 def key_expansion(key, n_k):
-    n_k = 4
-    w = numpy.empty((4, 44), dtype=int)
+    n_words = 4 * (n_r+1)
+    w = numpy.empty((4, n_words), dtype=int)
     i = 0
-    while i <= (n_k - 1):  # for the first 4 words (1st subkey), the expanded key is identical
+    while i < n_k:  # for the first 4 words (1st subkey), the expanded key is identical
         w[:, i] = key[:, i]  # copy first 4 columns identically
         i = i + 1
     # after i = 4 (starting 2nd subkey), we don't do an identical copy.
     # instead, we do some extra steps: rotate, substitute and XOR with round constant r_con.
-    while i < 44:  # number of words in expanded key 44*4=176
+    while i < n_words:  # number of words in expanded key 44*4=176
         # XORing the previous word by the word at index i - nk
         temp = w[:, i - 1]  # the previous word
-        # print(temp)
         if i % n_k == 0:
-            # temp = sub_word(rot_word(temp))[0] ^ r_con[i // n_k -1]
-            # print("temp: ", temp)
             temp = rot_word(temp)
-            # print("temp rot: ", temp)
             temp = sub_word(temp)
-            # print("temp sub: ", temp)
             temp[0] = temp[0] ^ r_con[i // n_k - 1]
-            # print("temp XOR: ", temp)
 
-            # print(temp)
         elif n_k > 6 and i % n_k == 4:
             temp = sub_word(temp)
         w[:, i] = w[:, i - n_k] ^ temp
@@ -335,59 +295,34 @@ def key_expansion(key, n_k):
     return w
 
 
-def cipher(string, n_r, w):
-    state = string
-    # print("hello", state)
+def cipher(state, n_r, w):
+    # initial round
     state = add_roundkey(state, w[:, 0:4])
-    # print("round 1 final state: - correct")
-    # print_hex(state)
 
-    for round in range(1, n_r - 1):
+    # nr-1 rounds in loop
+    for round in range(1, n_r):
         state = sub_bytes(state)
-        # print("after SBox - correct")
-        # print_hex(state)
         state = shift_rows(state)
-        # print("after shift rows - correct")
-        # print_hex(state)
         state = mix_columns(state)
-        # print("after mix columns - correct")
-        # print_hex(state)
         state = add_roundkey(state, w[:, (4 * round):(4 * round) + 4])
-        # print("after add roundkey")
-        # print_hex(state)
 
     # final round
     state = sub_bytes(state)
     state = shift_rows(state)
-    state = add_roundkey(state, w[:, 4 * (n_r - 1):(4 * (n_r - 1)) + 4])
+    state = add_roundkey(state, w[:, 4 * n_r:(4 * n_r) + 4])
 
     return state
 
 
-def inverse_cipher(string, n_r, w):
-    state = string
-    state = add_roundkey(state, w[:, 4 * (n_r - 1):(4 * (n_r - 1)) + 4])
+def inverse_cipher(state, n_r, w):
+    state = add_roundkey(state, w[:, 4 * n_r:(4 * n_r) + 4])
 
-    print("round 1 final state: - correct")
-    print_hex(state)
-
-    for round in range(n_r - 2, 0, -1):
-        print("round: ", round)
+    # n_r-1 rounds in loop
+    for round in range(n_r - 1, 0, -1):
         state = inverse_shift_rows(state)
-        print("after inverse shift - correct")
-        print_hex(state)
-
         state = inverse_sub_bytes(state)
-        print("after sub bytes - correct")
-        print_hex(state)
-
         state = add_roundkey(state, w[:, (4 * round):(4 * round) + 4])
-        print(round, "after add roundkey - correct")
-        print_hex(state)
-
         state = inverse_mix_columns(state)
-        print(round, "after inverse mix columns - correct")
-        print_hex(state)
 
     # final round
     state = inverse_shift_rows(state)
@@ -397,54 +332,161 @@ def inverse_cipher(string, n_r, w):
     return state
 
 
-if __name__ == '__main__':
-    rows, cols = (4, 4)
+def aes_encrypt_decrypt(key_size_bits, key, state):
+    # Determine n_k and n_r based on key_size_bits
+    if key_size_bits == 128:
+        n_k = 4
+        n_r = 10  # AES-128 has 10 rounds, so n_r = 10 + 1
+    elif key_size_bits == 192:
+        n_k = 6
+        n_r = 12  # AES-192 has 12 rounds, so n_r = 12 + 1
+    elif key_size_bits == 256:
+        n_k = 8
+        n_r = 16  # AES-256 has 14 rounds, so n_r = 14 + 1
+    else:
+        raise ValueError("Invalid key size. Must be 128, 192, or 256 bits.")
 
-    # rows x columns
-    state = numpy.array([[0 for i in range(cols)] for j in range(rows)])
+    # Expand the key
+    expanded_key = key_expansion(key, n_k=n_k)
+
+    # Encrypt
+    ciphertext = cipher(state.copy(), n_r=n_r, w=expanded_key)
+
+    # Decrypt
+    decrypted = inverse_cipher(ciphertext.copy(), n_r=n_r, w=expanded_key)
+
+    return ciphertext, decrypted
+
+
+if __name__ == '__main__':
+    # ~~~~~~~~~~~~~~~128bit EXAMPLE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    n_k = 4
+    # get n_k
+    if n_k == 4:
+        n_r = 10
+    elif n_k == 6:
+        n_r = 12
+    elif n_k == 8:
+        n_r = 14
+
+    # Example 128-bit state (16 bytes)
     # hex: 29 34 3f 4a 0f 1a 25 58 63 0a 0b 0c 0d 0e 0f 10
     state = numpy.array([[41, 52, 63, 74],
                          [15, 26, 37, 88],
                          [99, 10, 11, 12],
                          [13, 14, 15, 16]])
     state = state.transpose()
-    # print(state)
 
     # Example 128-bit key (16 bytes)
-    # aesEncryptionKey
+    # string: aesEncryptionKey
     key = numpy.array([[0x2b, 0x7e, 0x15, 0x16],
                        [0x28, 0xae, 0xd2, 0xa6],
                        [0xab, 0xf7, 0xcf, 0x5d],
                        [0x22, 0x1f, 0x3b, 0x30]])
-
     key = key.transpose()
-
-    # print(os.urandom(16))
-
-    # Flatten the array and convert to hexadecimal string
-    key_string = ''.join(f'{byte:02x}' for byte in key.flatten())
-
-    print(key_string)  # hex key: 2b7e151628aed2a6abf7cf5d221f3b30
-
-    expanded_key = key_expansion(key, 4)
 
     print("state:")
     print_hex(state)
     print("key:")
     print_hex(key)
+    # Flatten the array and convert to hexadecimal string
+    key_string = ''.join(f'{byte:02x}' for byte in key.flatten())
+    print("key_string:", key_string)  # hex key: 2b7e151628aed2a6abf7cf5d221f3b30
+
+    # ~~~~~~~~~~~~~~~GET THE EXPANDED KEY~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    expanded_key = key_expansion(key, n_k=n_k)
     print("expanded key:")
     print_hex(expanded_key)
-
-    cipher = cipher(state, 11, expanded_key)
-
+    print(expanded_key.shape)
     # ~~~~~~~~~~~~~~~GET THE CIPHER~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    print("cipher: - correct")
-    print_hex(cipher)
+    ciphertext = cipher(state, n_r=n_r, w=expanded_key)
 
     # ~~~~~~~~~~~~~~~DECRYPT THE CIPHER~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    decrypted = inverse_cipher(ciphertext, n_r=n_r, w=expanded_key)
 
-    cipher = inverse_cipher(cipher, 11, expanded_key)
 
-    print("cipher: - correct")
-    print_hex(cipher)
+
+    print("cipher:")
+    print_hex(ciphertext)
+    print("decrypted:")
+    print_hex(decrypted)
+
+    # ~~~~~~~~~~~~~~~192-bit EXAMPLE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    n_k = 6
+    n_r = 12  # AES-192 has 12 rounds, so n_r = 12 + 1 = 13
+
+    # Example 192-bit key (24 bytes)
+    key = numpy.array([
+        [0x8e, 0x73, 0xb0, 0xf7],
+        [0xda, 0x0e, 0x64, 0x52],
+        [0xc8, 0x10, 0xf3, 0x2b],
+        [0x80, 0x90, 0x79, 0xe5],
+        [0x62, 0xf8, 0xea, 0xd2],
+        [0x52, 0x2c, 0x6b, 0x7b]
+    ])
+    key = key.transpose()
+
+    # Example state (can be the same as in the 128-bit example)
+    state = numpy.array([
+        [41, 52, 63, 74],
+        [15, 26, 37, 88],
+        [99, 10, 11, 12],
+        [13, 14, 15, 16]
+    ])
+    state = state.transpose()
+
+    expanded_key = key_expansion(key, n_k=n_k)
+
+    ciphertext = cipher(state, n_r=n_r, w=expanded_key)
+    decrypted = inverse_cipher(ciphertext, n_r=n_r, w=expanded_key)
+
+    print("192-bit AES:")
+    print("Input Text:")
+    print_hex(state)
+    print("Ciphertext:")
+    print_hex(ciphertext)
+    print("Decrypted:")
+    print_hex(decrypted)
+
+    # ~~~~~~~~~~~~~~~256-bit EXAMPLE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    n_k = 8
+    n_r = 14  # AES-256 has 14 rounds, so n_r = 14 + 1 = 15
+
+    # Example 256-bit key (32 bytes)
+    key = numpy.array([
+        [0x60, 0x3d, 0xeb, 0x10],
+        [0x15, 0xca, 0x71, 0xbe],
+        [0x2b, 0x73, 0xae, 0xf0],
+        [0x85, 0x7d, 0x77, 0x81],
+        [0x1f, 0x35, 0x2c, 0x07],
+        [0x3b, 0x61, 0x08, 0xd7],
+        [0x2d, 0x98, 0x10, 0xa3],
+        [0x09, 0x14, 0xdf, 0xf4]
+    ])
+    key = key.transpose()
+
+    # Example state (can be the same as in the 128-bit example)
+    state = numpy.array([
+        [41, 52, 63, 74],
+        [15, 26, 37, 88],
+        [99, 10, 11, 12],
+        [13, 14, 15, 16]
+    ]).transpose()
+
+    expanded_key = key_expansion(key, n_k=n_k)
+
+    ciphertext = cipher(state, n_r=n_r, w=expanded_key)
+    decrypted = inverse_cipher(ciphertext, n_r=n_r, w=expanded_key)
+
+    print("256-bit AES:")
+    print("Input Text:")
+    print_hex(state)
+    print("Ciphertext:")
+    print_hex(ciphertext)
+    print("Decrypted:")
+    print_hex(decrypted)
+
+
+
+
+    #print(os.urandom(16))
