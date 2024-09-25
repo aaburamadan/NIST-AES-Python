@@ -271,7 +271,7 @@ def inverse_mix_columns(state):
     """
 
 
-def key_expansion(key, n_k):
+def key_expansion(key, n_k, n_r):
     n_words = 4 * (n_r+1)
     w = numpy.empty((4, n_words), dtype=int)
     i = 0
@@ -347,7 +347,7 @@ def aes_encrypt_decrypt(key_size_bits, key, state):
         raise ValueError("Invalid key size. Must be 128, 192, or 256 bits.")
 
     # Expand the key
-    expanded_key = key_expansion(key, n_k=n_k)
+    expanded_key = key_expansion(key, n_k=n_k, n_r=n_r)
 
     # Encrypt
     ciphertext = cipher(state.copy(), n_r=n_r, w=expanded_key)
@@ -394,7 +394,7 @@ if __name__ == '__main__':
     print("key_string:", key_string)  # hex key: 2b7e151628aed2a6abf7cf5d221f3b30
 
     # ~~~~~~~~~~~~~~~GET THE EXPANDED KEY~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    expanded_key = key_expansion(key, n_k=n_k)
+    expanded_key = key_expansion(key, n_k=n_k, n_r=n_r)
     print("expanded key:")
     print_hex(expanded_key)
     print(expanded_key.shape)
@@ -435,7 +435,7 @@ if __name__ == '__main__':
     ])
     state = state.transpose()
 
-    expanded_key = key_expansion(key, n_k=n_k)
+    expanded_key = key_expansion(key, n_k=n_k, n_r=n_r)
 
     ciphertext = cipher(state, n_r=n_r, w=expanded_key)
     decrypted = inverse_cipher(ciphertext, n_r=n_r, w=expanded_key)
@@ -473,7 +473,7 @@ if __name__ == '__main__':
         [13, 14, 15, 16]
     ]).transpose()
 
-    expanded_key = key_expansion(key, n_k=n_k)
+    expanded_key = key_expansion(key, n_k=n_k, n_r=n_r)
 
     ciphertext = cipher(state, n_r=n_r, w=expanded_key)
     decrypted = inverse_cipher(ciphertext, n_r=n_r, w=expanded_key)
