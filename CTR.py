@@ -1,17 +1,26 @@
 import numpy as np
 from AES import key_expansion, cipher, print_hex
 
+
 def xor_bytes(a, b):
     return np.bitwise_xor(a, b)
 
+
 def increment_counter(counter):
+    # Copy the counter to avoid modifying the original
     counter = counter.copy()
-    for i in reversed(range(len(counter))):
-        for j in reversed(range(len(counter[i]))):
-            counter[i][j] += 1
-            if counter[i][j] != 0:
-                return counter
+    # Flatten the counter to a 1D array of 16 bytes.
+    counter_flat = counter.flatten()
+    # converts the byte array to an integer, interpreting the bytes in big-endian order.
+    counter_int = int.from_bytes(counter_flat.tobytes(), byteorder='big')
+    # Increment the integer and use modulo 1 << 128 to ensure it wraps around after reaching the maximum 128-bit value.
+    counter_int = (counter_int + 1) % (1 << 128)  # Wrap around at 128 bits
+    # converts the integer back to a 16-byte array in big-endian order.
+    counter_bytes = counter_int.to_bytes(16, byteorder='big')
+    # Convert the bytes back to a NumPy array and reshape to (4, 4)
+    counter = np.frombuffer(counter_bytes, dtype=np.uint8).reshape(4, 4)
     return counter
+
 
 def ctr_encrypt(plaintext, key, nonce, n_k, n_r):
     # Expand the key
