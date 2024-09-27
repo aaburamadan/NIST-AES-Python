@@ -1,6 +1,14 @@
 import numpy as np
 from AES import key_expansion, cipher, inverse_cipher, print_hex
 
+"""
+    CBC mode encrypts the plaintext by XORing it with the previous ciphertext block before encryption.
+    The first block is XORed with an initialization vector (IV) instead of a ciphertext block.
+    This chaining of blocks ensures that the same plaintext block will not encrypt to the same ciphertext block.
+    CBC mode is not parallelizable because each block depends on the previous block.
+    CBC mode is not random access, meaning that each block must be decrypted in order.
+"""
+
 def xor_bytes(a, b):
     return np.bitwise_xor(a, b)
 

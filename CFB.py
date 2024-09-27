@@ -1,38 +1,107 @@
 import numpy as np
 from AES import key_expansion, cipher, print_hex
 
+"""
+    CFB mode encrypts the plaintext by encrypting the IV
+    The encrypted bits are divided as a set of s and b-s bits.
+    The left-hand side s bits are selected along with the plaintext to which an XOR operation is applied. 
+    The result is given as input to a shift register having b-s bits to left-hand-side,s bits to right-hand-side
+    and the shift register is encrypted to get the next s bits.
+
+    CFB mode is a stream cipher, so it encrypts one byte at a time and updating the shift register accordingly.
+    CFB mode is not random access, meaning that each block must be decrypted in order.
+    
+    This implementation is using bytes as the smallest unit.
+"""
+
+
 def xor_bytes(a, b):
     return np.bitwise_xor(a, b)
 
-def cfb_encrypt(plaintext, key, iv, n_k, n_r):
+def cfb_encrypt(plaintext, key, iv, n_k, n_r, s=16):
+    # s is the number of bits per segment
+    b = key.size * 8  # Length of the shift register in bits
+
     # Expand the key
     expanded_key = key_expansion(key, n_k=n_k, n_r=n_r)
 
-    # Encrypt each block
+    # Initialize shift register (flattened to a 1D array)
+    shift_reg = iv.transpose().flatten()
+    s_bytes = s // 8  # Number of bytes per segment
+
+    # Flatten the plaintext to process s bits at a time
+    plaintext_bytes = plaintext.transpose(0, 2, 1).flatten()
+
+    # Encrypt each segment
     ciphertext = []
-    previous_block = iv
-    for block in plaintext:
-        encrypted_iv = cipher(previous_block, n_r=n_r, w=expanded_key)
-        encrypted_block = xor_bytes(block, encrypted_iv)
-        ciphertext.append(encrypted_block)
-        previous_block = encrypted_block
+    for i in range(0, len(plaintext_bytes), s_bytes):
+        # Encrypt the shift register
+        sr_block = shift_reg.reshape(4, 4).transpose()
+        encrypted_shift_reg = cipher(sr_block, n_r=n_r, w=expanded_key)
+        # flatten to extract bytes easier
+        encrypted_shift_reg_bytes = encrypted_shift_reg.transpose().flatten()
 
-    return np.array(ciphertext)
+        # Extract the first s bytes from the encrypted shift register
+        selected_bits = encrypted_shift_reg_bytes[:s_bytes]
 
-def cfb_decrypt(ciphertext, key, iv, n_k, n_r):
+        # Get s bytes from plaintext
+        plaintext_segment = plaintext_bytes[i:i+s_bytes]
+
+        # XOR with plaintext segment
+        encrypted_segment = xor_bytes(plaintext_segment, selected_bits)
+        ciphertext.extend(encrypted_segment)
+
+        # Update the shift register
+        shift_reg = np.concatenate((shift_reg[s_bytes:], encrypted_segment))
+
+    # Reshape ciphertext back to original plaintext shape
+    ciphertext_array = np.array(ciphertext, dtype=np.uint8)
+    ciphertext_array = ciphertext_array.reshape(plaintext.shape)
+
+    return ciphertext_array
+
+def cfb_decrypt(ciphertext, key, iv, n_k, n_r, s=16):
+    # s is the number of bits per segment
+    b = key.size * 8  # Length of the shift register in bits
+
     # Expand the key
     expanded_key = key_expansion(key, n_k=n_k, n_r=n_r)
 
-    # Decrypt each block
-    decrypted_text = []
-    previous_block = iv
-    for block in ciphertext:
-        encrypted_iv = cipher(previous_block, n_r=n_r, w=expanded_key)
-        decrypted_block = xor_bytes(block, encrypted_iv)
-        decrypted_text.append(decrypted_block)
-        previous_block = block
+    # Initialize shift register (flattened to a 1D array)
+    shift_reg = iv.transpose().flatten()
+    s_bytes = s // 8  # Number of bytes per segment
 
-    return np.array(decrypted_text)
+    # Flatten the ciphertext to process s bits at a time
+    ciphertext_bytes = ciphertext.flatten()
+
+    # Decrypt each segment
+    plaintext = []
+    for i in range(0, len(ciphertext_bytes), s_bytes):
+        # Encrypt the shift register
+        sr_block = shift_reg.reshape(4, 4).transpose()
+        encrypted_shift_reg = cipher(sr_block, n_r=n_r, w=expanded_key)
+        encrypted_shift_reg_bytes = encrypted_shift_reg.transpose().flatten()
+
+        # Extract the first s bytes
+        selected_bits = encrypted_shift_reg_bytes[:s_bytes]
+
+        # Get s bytes from ciphertext
+        ciphertext_segment = ciphertext_bytes[i:i + s_bytes]
+
+        # XOR with ciphertext segment to get plaintext segment
+        plaintext_segment = xor_bytes(ciphertext_segment, selected_bits)
+        plaintext.extend(plaintext_segment)
+
+        # Update the shift register
+        shift_reg = np.concatenate((shift_reg[s_bytes:], ciphertext_segment))
+
+    # Reshape plaintext back to original shape
+    plaintext_array = np.array(plaintext, dtype=np.uint8)
+    plaintext_array = plaintext_array.reshape(ciphertext.shape)
+    plaintext_array = plaintext_array.transpose(0, 2, 1)
+
+    return plaintext_array
+
 
 # Example usage
 if __name__ == "__main__":
@@ -71,8 +140,11 @@ if __name__ == "__main__":
     n_k = 4  # Number of 32-bit words in the key (4 for 128-bit key)
     n_r = 10  # Number of rounds (10 for 128-bit key)
 
-    ciphertext = cfb_encrypt(plaintext, key, iv, n_k, n_r)
-    decrypted_text = cfb_decrypt(ciphertext, key, iv, n_k, n_r)
+    # 8, 16, 32, 64 bits are used for s
+    # shift register size is typically 128 bits in AES (key size)
+    # in DES it is 64 bits
+    ciphertext = cfb_encrypt(plaintext, key, iv, n_k, n_r, s=32)
+    decrypted_text = cfb_decrypt(ciphertext, key, iv, n_k, n_r, s=32)
 
     print("CFB AES 128bit:")
     print("Plaintext:")
@@ -86,3 +158,4 @@ if __name__ == "__main__":
     print("Decrypted text:")
     for block in decrypted_text:
         print_hex(block)
+

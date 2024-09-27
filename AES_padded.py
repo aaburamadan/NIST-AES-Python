@@ -157,7 +157,7 @@ if __name__ == "__main__":
     # Test example AES encryption and decryption
     input_string = "This is a test string for AES encryption."
     key_size = 128  # Can be 128, 192, or 256
-    mode = 'ECB'  # Can be 'ECB', 'CBC', 'CFB', 'OFB', or 'CTR'
+    mode = 'CFB'  # Can be 'ECB', 'CBC', 'CFB', 'OFB', or 'CTR'
 
     run_aes(input_string, key_size, mode)
 

@@ -1,6 +1,16 @@
 import numpy as np
 from AES import key_expansion, cipher, print_hex
 
+"""
+    similar to OFB mode, but instead of encrypting the IV, we encrypt a counter that is incremented for each block.
+    The counter is initialized with a nonce (number used once) to ensure that the same counter value is never used twice.
+    The nonce is typically a random value that is different for each message.
+    The counter is incremented for each block, and the encrypted counter is XORed with the PLAINTEXT to produce the ciphertext.
+    The decryption process is the same as the encryption process, so CTR mode is a stream cipher.
+    The difference in decryption is that the CIPHERTEXT is XORed with the encrypted counter to recover the plaintext.
+    CTR mode is parallelizable because each block can be encrypted independently.
+    CTR mode is also random access, meaning that any block can be decrypted without having to decrypt the previous blocks.
+"""
 
 def xor_bytes(a, b):
     return np.bitwise_xor(a, b)
@@ -22,14 +32,15 @@ def increment_counter(counter):
     return counter
 
 
-def ctr_encrypt(plaintext, key, nonce, n_k, n_r):
+#input can be plaintext or ciphertext
+def ctr_encrypt(input, key, nonce, n_k, n_r):
     # Expand the key
     expanded_key = key_expansion(key, n_k=n_k, n_r=n_r)
 
     # Encrypt each block
     ciphertext = []
     counter = nonce
-    for block in plaintext:
+    for block in input:
         encrypted_counter = cipher(counter, n_r=n_r, w=expanded_key)
         encrypted_block = xor_bytes(block, encrypted_counter)
         ciphertext.append(encrypted_block)
@@ -37,9 +48,11 @@ def ctr_encrypt(plaintext, key, nonce, n_k, n_r):
 
     return np.array(ciphertext)
 
+
 def ctr_decrypt(ciphertext, key, nonce, n_k, n_r):
     # CTR decryption is the same as encryption
     return ctr_encrypt(ciphertext, key, nonce, n_k, n_r)
+
 
 # Example usage
 if __name__ == "__main__":

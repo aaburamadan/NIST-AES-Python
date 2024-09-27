@@ -3,6 +3,8 @@ Python implementation of NIST AES Encryption.
 
 128-bit, 192-bit, and 256-bit key encryption and decryption using the NIST AES encryption algorithm. The implementation supports the following modes of operation:
 - ECB, CBC, CFB, OFB, and CTR.
+
+additional features include:
 - Arbitrary input strings with padding (PKCS7).
 - Random key generation.
 - Testing of all the modes of operation on a custom string implemented with plotting.
@@ -55,4 +57,4 @@ python test_AES.py
 # License
 This project can be used freely for all purposes. Authors must be credited.
 
-Authors are not responsible for any misuse of the code.
+Authors are not responsible for any misuse of the code, and give no warranty or guarantee of any kind.

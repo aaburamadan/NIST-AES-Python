@@ -1,6 +1,13 @@
 import numpy as np
 from AES import key_expansion, cipher, inverse_cipher, print_hex
 
+"""
+    ECB mode encrypts each block of plaintext independently using the same key.
+    This means that the same plaintext block will always encrypt to the same ciphertext block.
+    This can leak information about the plaintext, so ECB mode is not recommended for most applications.
+    ECB mode is parallelizable because each block can be encrypted independently.
+    ECB mode is also random access, meaning that any block can be decrypted without having to decrypt the previous blocks.
+"""
 
 def ecb_encrypt(plaintext, key, n_k, n_r):
     # Expand the key
@@ -72,3 +79,5 @@ if __name__ == "__main__":
     print("Decrypted text:")
     for block in decrypted_text:
         print_hex(block)
+
+    print(decrypted_text)
