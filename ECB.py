@@ -34,6 +34,64 @@ def ecb_decrypt(ciphertext, key, n_k, n_r):
 
     return np.array(decrypted_text)
 
+# show behavior of ECB mode decryption with error
+def ecb_decrypt_with_error(ciphertext, key, n_k, n_r, error_block_idx=0, error_bit_mask=0x01):
+    # Introduce an error in the ciphertext
+    corrupted_ciphertext = ciphertext.copy()
+    corrupted_ciphertext[error_block_idx][0][0] ^= error_bit_mask  # Flip a bit in the first block
+
+    expanded_key = key_expansion(key, n_k=n_k, n_r=n_r)
+    decrypted_text = []
+    for block in corrupted_ciphertext:
+        decrypted_block = inverse_cipher(block, n_r=n_r, w=expanded_key)
+        decrypted_text.append(decrypted_block)
+    return np.array(decrypted_text)
+
+
+def print_error_comparison(title, decrypted_correct, decrypted_with_error):
+    print(f"\n--- {title} ---")
+    print(f"{'Block':<10}{'Decrypted (With Error introduced in Block 1)':<32}")
+    print("-" * 42)
+
+    for i in range(len(decrypted_correct)):
+        dec_correct = ' '.join(f'{byte:02x}' for byte in decrypted_correct[i].flatten())
+        dec_error = ' '.join(f'{byte:02x}' for byte in decrypted_with_error[i].flatten())
+
+        print(f"Block {i:<4} (Correct)   {dec_correct:<32}")
+        print(f"Block {i:<4} (With Error) {dec_error:<32}")
+        print("-" * 42)  # separator between blocks
+
+
+def print_error_comparison_with_highlight(title, decrypted_correct, decrypted_with_error):
+    print(f"\n--- {title} ---")
+    print(f"{'Block':<10}{'Decrypted (With Error introduced in Block 1)':<48}")
+    print("-" * 100)
+
+    for i in range(len(decrypted_correct)):
+        dec_correct = decrypted_correct[i].flatten()
+        dec_error = decrypted_with_error[i].flatten()
+
+        correct_str = []
+        error_str = []
+
+        # Compare byte by byte and add red highlighting for differences
+        for j in range(len(dec_correct)):
+            correct_str.append(f'{dec_correct[j]:02x}')
+
+            if dec_correct[j] == dec_error[j]:
+                error_str.append(f'{dec_error[j]:02x}')  # No change
+            else:
+                # Highlight the error in red
+                error_str.append(f'\033[31m{dec_error[j]:02x}\033[0m')
+
+        # Join the byte lists into strings
+        correct_str = ' '.join(correct_str)
+        error_str = ' '.join(error_str)
+
+        print(f"Block {i:<4} (Correct)   {correct_str:<48}")
+        print(f"Block {i:<4} (With Error) {error_str:<48}")
+        print("-" * 100)
+
 
 # Example usage
 if __name__ == "__main__":
@@ -58,6 +116,18 @@ if __name__ == "__main__":
             [21, 22, 23, 24],
             [25, 26, 27, 28],
             [29, 30, 31, 32]
+        ],
+        [
+            [33, 34, 35, 36],
+            [37, 38, 39, 40],
+            [41, 42, 43, 44],
+            [45, 46, 47, 48]
+        ],
+        [
+            [49, 50, 51, 52],
+            [53, 54, 55, 56],
+            [57, 58, 59, 60],
+            [61, 62, 63, 64]
         ]
     ]).transpose(0, 2, 1)
 
@@ -81,3 +151,12 @@ if __name__ == "__main__":
         print_hex(block)
 
     print(decrypted_text)
+
+
+    # ---
+    # Example usage for ECB with error
+    ciphertext = ecb_encrypt(plaintext, key, n_k, n_r)
+    decrypted_text_with_error = ecb_decrypt_with_error(ciphertext, key, n_k, n_r)
+
+    # Compare the results
+    print_error_comparison_with_highlight("ECB Decryption Error Comparison (Highlighted)", decrypted_text, decrypted_text_with_error)

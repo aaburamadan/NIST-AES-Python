@@ -94,6 +94,17 @@ def decrypt(ciphertext, key, iv, n_k, n_r, mode):
         raise ValueError("Invalid mode. Choose from 'ECB', 'CBC', 'CFB', 'OFB', or 'CTR'.")
 
 
+# Function to run AES decryption with error
+def decrypt_with_error(ciphertext, key, iv, n_k, n_r, mode):
+    if mode == 'ECB':
+        from ECB import ecb_decrypt_with_error
+        return ecb_decrypt_with_error(ciphertext, key, n_k, n_r)
+    elif mode == 'CBC':
+        from CBC import cbc_decrypt_with_error
+        return cbc_decrypt_with_error(ciphertext, key, iv, n_k, n_r)
+    else:
+        raise ValueError("Invalid mode. Choose from 'ECB' or 'CBC'.")
+
 # Function to run AES encryption and decryption
 def run_aes(input_string, key_size, mode):
     key, iv, plaintext_blocks, n_k, n_r, mode = initialize_aes(input_string, key_size, mode)
@@ -124,6 +135,7 @@ def run_aes(input_string, key_size, mode):
     print(f"Decrypted Text: {decrypted_text}")
 
 
+# interface functions for encryption and decryption
 def run_aes_encryption(input_string, key_size, mode):
     key, iv, plaintext_blocks, n_k, n_r, mode = initialize_aes(input_string, key_size, mode)
     ciphertext = encrypt(plaintext_blocks, key, iv, n_k, n_r, mode)
@@ -131,8 +143,11 @@ def run_aes_encryption(input_string, key_size, mode):
     return ciphertext, key, iv, n_k, n_r, mode
 
 
-def run_aes_decryption(ciphertext, key, iv, n_k, n_r, mode):
-    decrypted_blocks = decrypt(ciphertext, key, iv, n_k, n_r, mode)
+def run_aes_decryption(ciphertext, key, iv, n_k, n_r, mode, optional_error=False):
+    if optional_error:
+        decrypted_blocks = decrypt_with_error(ciphertext, key, iv, n_k, n_r, mode)
+    else:
+        decrypted_blocks = decrypt(ciphertext, key, iv, n_k, n_r, mode)
 
     # Transpose back to original orientation
     decrypted_blocks = decrypted_blocks.transpose(0, 2, 1)
@@ -155,10 +170,18 @@ def run_aes_decryption(ciphertext, key, iv, n_k, n_r, mode):
 
 if __name__ == "__main__":
     # Test example AES encryption and decryption
-    input_string = "This is a test string for AES encryption."
-    key_size = 128  # Can be 128, 192, or 256
-    mode = 'CFB'  # Can be 'ECB', 'CBC', 'CFB', 'OFB', or 'CTR'
+    input_string = "This is a test string for AES encryption. String is repeated to increase size."
+    key_size = 256  # Can be 128, 192, or 256
+    mode = 'ECB'  # Can be 'ECB', 'CBC', 'CFB', 'OFB', or 'CTR'
 
     run_aes(input_string, key_size, mode)
+
+    # Example usage for ECB with error
+    #ciphertext, key, iv, n_k, n_r, mode = run_aes_encryption(input_string, key_size, mode)
+    #decrypted_text_with_error = run_aes_decryption(ciphertext, key, iv, n_k, n_r, mode, optional_error=True)
+
+    #print("Decrypted text with error (ECB):")
+    #print(decrypted_text_with_error)
+
 
 

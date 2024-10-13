@@ -6,8 +6,6 @@ from typing import List, Any
 import numpy
 import os
 
-from numpy import ndarray, dtype
-
 # SBox() as 2D array
 s_box = numpy.array([
     [0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76],
@@ -161,6 +159,12 @@ def sub_word(word):  # pass word as 4 elements array
     return word
 
 
+# Multiplication in GF(2^8) by 2, 3, 9, 11, 13, and 14
+# The multiplication operation in GF(2^8) is defined by the AES polynomial
+# x^8+x^4+x^3+x+1, which corresponds to the constant 0x1B.
+# The multiplication operation is defined as follows:
+# - If the most significant bit (MSB) of the byte is 1, perform modulus with the AES polynomial.
+# - If the MSB is 0, just shift left by 1.
 def x_times(b):
     b = b & 0xFF  # Ensure b is within 0-255
     if b & 0x80:
@@ -170,16 +174,19 @@ def x_times(b):
         # If MSB is 0, just shift left by 1
         return (b << 1) & 0xFF
 
-
+# The multiplication by 2 operation is equivalent to shifting the byte left by 1.
 def multiply_by_2(b):
     return x_times(b)
 
-
+# The multiplication by 3 operation is equivalent to multiplying the byte by 2
+# and then XORing the result with the original byte.
 def multiply_by_3(b):
-    return x_times(b) ^ b
+    return x_times(b) ^ b # b⋅3 = (b⋅2) ⊕ b, where ⊕ is the XOR operation
 
 
 # Multiplication in GF(2^8) by 9, 11, 13, and 14 :: 09, 0b, 0d, 0e
+# The multiplication by 9 operation is equivalent to multiplying the byte by 2 three times
+# and then XORing the result with the original byte.
 def multiply_by_9(b):
     return x_times(x_times(x_times(b))) ^ b  # 9 = 2^3 + 1
 
@@ -272,8 +279,8 @@ def inverse_mix_columns(state):
 
 
 def key_expansion(key, n_k, n_r):
-    n_words = 4 * (n_r+1)
-    w = numpy.empty((4, n_words), dtype=int)
+    n_words = 4 * (n_r+1) #128bit key = 44 words, 192bit key = 52 words, 256bit key = 60 words
+    w = numpy.empty((4, n_words), dtype=int) #rxc
     i = 0
     while i < n_k:  # for the first 4 words (1st subkey), the expanded key is identical
         w[:, i] = key[:, i]  # copy first 4 columns identically
@@ -440,6 +447,7 @@ if __name__ == '__main__':
     ciphertext = cipher(state, n_r=n_r, w=expanded_key)
     decrypted = inverse_cipher(ciphertext, n_r=n_r, w=expanded_key)
 
+    print()
     print("192-bit AES:")
     print("Input Text:")
     print_hex(state)
@@ -478,6 +486,7 @@ if __name__ == '__main__':
     ciphertext = cipher(state, n_r=n_r, w=expanded_key)
     decrypted = inverse_cipher(ciphertext, n_r=n_r, w=expanded_key)
 
+    print()
     print("256-bit AES:")
     print("Input Text:")
     print_hex(state)

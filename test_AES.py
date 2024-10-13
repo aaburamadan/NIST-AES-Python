@@ -14,7 +14,7 @@ def test_aes_performance():
     """
     # input_string = "This is a test string for AES encryption performance measurement."
     # test long string
-    input_string = "This is a test string for AES encryption performance measurement." * 50  # Repeat to increase size
+    input_string = "This is a test string for AES encryption performance measurement." * 5 # Repeat to increase size
     key_sizes = [128, 192, 256]
     modes = ['ECB', 'CBC', 'CFB', 'OFB', 'CTR']
     num_runs = 50  # Number of runs for averaging
